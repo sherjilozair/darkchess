@@ -2,30 +2,114 @@
 <html>
 <body>
 
-<canvas id='game' width="1024" height="1024" style="border:1px solid"></canvas>
+<canvas id="game" width="512" height="512" style="border:1px solid"></canvas>
 
 <script>
+
+    function zeros(dimensions, value) {
+        var array = [];
+        for (var i = 0; i < dimensions[0]; ++i) {
+            array.push(dimensions.length == 1 ? value : zeros(dimensions.slice(1), value));
+        }
+        return array;
+    }
+
+    function sleep(ms) {
+       return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function make_starting_board(){
+        let board_state = zeros([8, 8], "empty");
+        for(var col = 0; col < 8; col++){
+            board_state[1][col] = "whitePawn";
+            board_state[6][col] = "blackPawn";
+        }
+        
+        board_state[0][0] = "whiteRook";
+        board_state[0][7] = "whiteRook";
+        
+        board_state[7][0] = "blackRook";
+        board_state[7][7] = "blackRook";
+
+        board_state[0][1] = "whiteKnight";
+        board_state[0][6] = "whiteKnight";
+        
+        board_state[7][1] = "blackKnight";
+        board_state[7][6] = "blackKnight";
+
+        board_state[0][2] = "whiteBishop";
+        board_state[0][5] = "whiteBishop";
+        
+        board_state[7][2] = "blackBishop";
+        board_state[7][5] = "blackBishop";
+
+        board_state[0][3] = "whiteQueen";
+        board_state[0][4] = "whiteKing";
+        
+        board_state[7][3] = "blackQueen";
+        board_state[7][4] = "blackKing";
+
+        return board_state
+    }
+
+    function compute_visibility(state, player){
+        
+        var visibility = zeros([8, 8], false);
+        for (var row = 0; row < 8; row++){
+            for (var col = 0; col < 8; col++){
+                if (state[row][col] == player + "Pawn"){
+                    visibility[row][col] = true;
+
+                    if (player == "white"){
+                        if (row < 7){
+                            if (col > 0) visibility[row+1][col-1] = true;
+                            visibility[row+1][col+0] = true;
+                            if (col < 7) visibility[row+1][col+1] = true;
+                        }
+                    }
+
+                    if (player == "black"){
+                        if (row > 0){
+                            if (col > 0) visibility[row-1][col-1] = true;
+                            visibility[row-1][col+0] = true;
+                            if (col < 7) visibility[row-1][col+1] = true;
+                        }
+                    }
+                }
+
+                if (state[row][col] == player + "Rook"){
+                    visibility[row][col] = true;
+                }
+
+                if (state[row][col] == player + "Knight"){
+                    visibility[row][col] = true;
+                }
+
+                if (state[row][col] == player + "Bishop"){
+                    visibility[row][col] = true;
+                }
+
+                if (state[row][col] == player + "King"){
+                    visibility[row][col] = true;
+                }
+
+                if (state[row][col] == player + "Queen"){
+                    visibility[row][col] = true;
+                }
+            }
+        }
+        return visibility;
+    }
+
+    let board_state = make_starting_board();
+    let visible = compute_visibility(board_state, "white");
+
+    console.log(board_state)
     let canvas = document.getElementById('game');
 	// get canvas context
     let ctx = canvas.getContext('2d');
-
+    
     let images = [];
-
-    let image_names=[
-        "blackBishop",
-        "blackKing",
-        "blackKnight",
-        "blackPawn",
-        "blackQueen",
-        "blackRook",
-        
-        "whiteBishop",
-        "whiteKing",
-        "whiteKnight",
-        "whitePawn",
-        "whiteQueen",
-        "whiteRook",
-    ];
 
     let piece_sprites = {
         'blackKing': 'https://upload.wikimedia.org/wikipedia/commons/f/f0/Chess_kdt45.svg',
@@ -42,7 +126,7 @@
         'whitePawn': 'https://upload.wikimedia.org/wikipedia/commons/4/45/Chess_plt45.svg',
     }
 
-    // let piece_positions = [[]]
+    let square_length = 64;
 
     for (var piece in piece_sprites){
         let image = new Image();
@@ -54,39 +138,55 @@
         images[piece] = image;
     }
 
-    let square_length = 128;
-    function update(){
-        
-    }
-
-    function draw_piece(piece, rank, file){
-        var file_from_top = 7 - file;
-        ctx.drawImage(images[piece], rank * square_length, file_from_top * square_length, square_length, square_length);
+    function draw_piece(piece, row, col){
+        var row_from_top = 7 - row;
+        ctx.drawImage(images[piece], col * square_length, row_from_top * square_length, square_length, square_length);
     }
 
     function draw(){
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        var black_color = "#B58964";
-        var white_color = "#F0DAB5";
-        var black_fog_color = "#332E29"
-        var white_fog_color = "#38342C"
-        for(var rank = 0; rank < 8; rank++){
-            for (var file = 0; file < 8; file++){
-                
-                var bit = (rank + file) % 2 == 0;
-                var fog_bit = file < 4;
-                var color = bit? black_color : white_color;
-                var fog_color = bit? black_fog_color: white_fog_color;
-                color = fog_bit? fog_color: color;
-                ctx.fillStyle = color;
-                ctx.fillRect(rank * square_length, file * square_length, square_length, square_length);
+        
+        var black_color = "#B58964FF";
+        var white_color = "#F0DAB5FF";
+        var black_fog_color = "#332E29FF";
+        var white_fog_color = "#38342CFF";
+        var fog_transparency = "#000000AA";
 
+        for(var row = 0; row < 8; row++){
+            var row_from_top = 7 - row;
+            for (var col = 0; col < 8; col++){
+                
+                var bit = (row + col) % 2 == 0;
+                // var fog_bit = row < 4;
+                var color = bit? black_color : white_color;
+                // var fog_color = bit? black_fog_color: white_fog_color;
+                // color = fog_bit? fog_color: color;
+                ctx.fillStyle = color;
+                ctx.fillRect(col * square_length, row_from_top * square_length, square_length, square_length);
+                
+                if (!visible[row][col]){
+                    ctx.fillStyle = fog_transparency;
+                    ctx.fillRect(col * square_length, row_from_top * square_length, square_length, square_length);
+                }
             }
         }
 
+        for(var row = 0; row < 8; row++){
+            for (var col = 0; col < 8; col++){
+                var piece = board_state[row][col];
+                // console.log(piece)
+
+                if (piece != "empty"){
+                    if (visible[row][col]){
+                        draw_piece(piece, row, col);
+                    }
+                }
+            }
+        }
         
-        draw_piece('whiteKing', 0, 0);
-        draw_piece('blackQueen', 1, 0);
+        
+        
+        // draw_piece('whiteQueen', 0, 1);
         
     }
 
